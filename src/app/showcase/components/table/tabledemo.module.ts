@@ -9,13 +9,14 @@ import { TableSortDemo } from './tablesortdemo';
 import { TableSelectionDemo } from './tableselectiondemo';
 import { TableFilterDemo } from './tablefilterdemo';
 import { TableSectionsDemo } from './tablesectionsdemo';
-import { TableSubmenu } from './tablesubmenu';
 import { TableStyleDemo } from './tablestyledemo';
 import { TableLazyDemo } from './tablelazydemo';
 import { TableExportDemo } from './tableexportdemo';
 import { TableColGroupDemo } from './tablecolgroupdemo';
 import { TableRowExpansionDemo } from './tablerowexpansiondemo';
 import { TableScrollDemo } from './tablescrolldemo';
+import { TableVirtualScrollDemo } from './tablevirtualscrolldemo';
+import { TableFlexScrollDemo } from './tableflexscrolldemo';
 import { TableColToggleDemo } from './tablecoltoggledemo';
 import { TableCrudDemo } from './tablecruddemo';
 import { TableResponsiveDemo } from './tableresponsivedemo';
@@ -61,7 +62,6 @@ import { CodeHighlighterModule } from 'primeng/codehighlighter';
 		CodeHighlighterModule
 	],
 	declarations: [
-		TableSubmenu,
 		TableDemo,
 		TableBasicDemo,
 		TableDynamicDemo,
@@ -75,7 +75,9 @@ import { CodeHighlighterModule } from 'primeng/codehighlighter';
 		TableExportDemo,
 		TableColGroupDemo,
 		TableRowExpansionDemo,
-		TableScrollDemo,
+        TableScrollDemo,
+        TableVirtualScrollDemo,
+        TableFlexScrollDemo,
 		TableColToggleDemo,
 		TableCrudDemo,
 		TableResponsiveDemo,

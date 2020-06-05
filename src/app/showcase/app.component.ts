@@ -1,6 +1,7 @@
-import { Component, OnInit, Renderer2 } from '@angular/core';
+import { Component, OnInit, Renderer2, ElementRef, ViewChild } from '@angular/core';
 import { Router, NavigationEnd } from '@angular/router';
-import { trigger, state, style, transition, animate } from '@angular/animations';
+import { trigger, state, style, transition, animate, AnimationEvent } from '@angular/animations';
+import { VersionService } from './service/versionservice';
 
 declare let gtag: Function;
 
@@ -9,34 +10,30 @@ declare let gtag: Function;
   templateUrl: './app.component.html',
   styleUrls: ['./app.component.css'],
   animations: [
-    trigger('animation', [
+    trigger('submenu', [
         state('hidden', style({
             height: '0',
             overflow: 'hidden',
-            maxHeight: '0',
-            paddingTop: '0',
-            paddingBottom: '0',
-            marginTop: '0',
-            marginBottom: '0',
-            opacity: '0',
-        })),
-        state('void', style({
-            height: '0',
-            overflow: 'hidden',
-            maxHeight: '0',
-            paddingTop: '0',
-            paddingBottom: '0',
-            marginTop: '0',
-            marginBottom: '0',
+            opacity: 0,
         })),
         state('visible', style({
-            height: '*'
+            height: '*',
+            opacity: 1
         })),
-        transition('visible <=> hidden', animate('400ms cubic-bezier(0.86, 0, 0.07, 1)')),
-        transition('void => hidden', animate('400ms cubic-bezier(0.86, 0, 0.07, 1)')),
-        transition('void => visible', animate('400ms cubic-bezier(0.86, 0, 0.07, 1)'))
-    ])
-]
+        transition('* <=> *', animate('400ms cubic-bezier(0.86, 0, 0.07, 1)')),
+    ]),
+    trigger('topbarSubmenu', [
+        state('void', style({
+            transform: 'translateY(5%)',
+            opacity: 0
+        })),
+        state('visible', style({
+            transform: 'translateY(0)',
+            opacity: 1
+        })),
+        transition('* <=> *', animate('250ms cubic-bezier(0.86, 0, 0.07, 1)')),
+    ]) 
+    ]
 })
 export class AppComponent implements OnInit{
 
@@ -54,35 +51,21 @@ export class AppComponent implements OnInit{
 
     newsActive: boolean;
 
-    resourcesMenuVisible: boolean;
-
-    resourcesMenuClick: boolean;
-
-    themesMenuVisible: boolean;
-
-    themesMenuClick: boolean;
-
-    templatesMenuVisible: boolean;
-
-    templatesMenuClick: boolean;
-
-    versionsMenuVisible: boolean;
-
-    versionsMenuClick: boolean;
-
-    themesMenuOutsideClickListener: any;
-
-    templatesMenuOutsideClickListener: any;
-
-    resourcesMenuOutsideClickListener: any;
-
-    versionsMenuOutsideClickListener: any;
-
     configClick: boolean;
 
     configActive: boolean;
 
-    constructor(private router: Router, public renderer: Renderer2) {
+    activeSubmenus: {[key: string]: boolean} = {};
+
+    activeTopbarSubmenu: number;
+
+    topbarSubmenuOutsideClickListener;
+
+    versions: any[];
+
+    @ViewChild('topbarMenu') topbarMenu: ElementRef;
+
+    constructor(private router: Router, private renderer: Renderer2, private versionService: VersionService) {
         this.router.events.subscribe(event => {
             if (event instanceof NavigationEnd) {
                 gtag('config', 'UA-93461466-1', 
@@ -90,8 +73,13 @@ export class AppComponent implements OnInit{
                         'page_path': '/primeng' + event.urlAfterRedirects
                       }
                 );
+
+                this.activeTopbarSubmenu = null;
+                this.menuActive = false;
              }
-          });
+        });
+
+        this.versionService.getVersions().then(data => this.versions = data);
     }
 
     ngOnInit() {
@@ -100,7 +88,7 @@ export class AppComponent implements OnInit{
             this.routes.push(route.path.charAt(0).toUpperCase() + route.path.substr(1)); 
         }
 
-        this.initNewsState();
+        //this.initNewsState();
     }
 
     onAnimationStart (event) {
@@ -110,6 +98,7 @@ export class AppComponent implements OnInit{
             break;
         }
     }
+
     onAnimationDone (event) {
         switch (event.toState) {
             case 'hidden':
@@ -149,6 +138,7 @@ export class AppComponent implements OnInit{
             this.removeClass(document.body, 'dark-theme');
         }
         
+        this.activeTopbarSubmenu = null;
         event.preventDefault();
     }
 
@@ -186,126 +176,62 @@ export class AppComponent implements OnInit{
         this.newsActive = false;
         sessionStorage.setItem('primenews-hidden', "true");
         event.preventDefault();
-    } 
-
-    onResourcesMenuClick(event) {
-        if (!this.resourcesMenuVisible) {
-            this.resourcesMenuVisible = true;
-            this.resourcesMenuClick = true;
-            this.bindResourcesMenuOutsideClickListener();        
-        }
     }
 
-    onThemesMenuClick(event) {
-        if (!this.themesMenuVisible) {
-            this.themesMenuVisible = true;
-            this.themesMenuClick = true;
-            this.bindThemesMenuOutsideClickListener();
-        }
+    toggleSubmenu(event, name) {
+        this.activeSubmenus[name] = this.activeSubmenus[name] ? false: true;
+        event.preventDefault();
     }
 
-    onTemplatesMenuClick(event) {
-        if (!this.templatesMenuVisible) {
-            this.templatesMenuVisible = true;
-            this.templatesMenuClick = true;
-            this.bindTemplatesMenuOutsideClickListener();
+    isSubmenuActive(name) {
+        if (this.activeSubmenus.hasOwnProperty(name)) {
+            return this.activeSubmenus[name];
         }
+        else if (this.router.isActive(name, false)) {
+            this.activeSubmenus[name] = true;
+            return true;
+        }
+
+        return false;
     }
 
-    onVersionsMenuClick(event) {
-        if (!this.versionsMenuVisible) {
-            this.versionsMenuVisible = true;
-            this.versionsMenuClick = true;
-            this.bindVersionsMenuOutsideClickListener();
-        }
-    }
-
-    bindThemesMenuOutsideClickListener() {
-        if (!this.themesMenuOutsideClickListener) {
-            this.themesMenuOutsideClickListener = (event) => {
-                if (!this.themesMenuClick) {
-                    this.themesMenuVisible = false;
-                    this.unbindThemesMenuOutsideClickListener();
+    bindTopbarSubmenuOutsideClickListener() {
+        if (!this.topbarSubmenuOutsideClickListener) {
+            this.topbarSubmenuOutsideClickListener = (event) => {
+                if (this.isOutsideTopbarMenuClicked(event)) {
+                    this.activeTopbarSubmenu =  null;
                 }
-
-                this.themesMenuClick = false;
             };
 
-            document.addEventListener('click', this.themesMenuOutsideClickListener);
+            document.addEventListener('click', this.topbarSubmenuOutsideClickListener);
         }
     }
 
-    unbindThemesMenuOutsideClickListener() {
-        if (this.themesMenuOutsideClickListener) {
-            document.removeEventListener('click', this.themesMenuOutsideClickListener);
-            this.themesMenuOutsideClickListener = null;
+    unbindTopbarSubmenuOutsideClickListener() {
+        if (this.topbarSubmenuOutsideClickListener) {
+            document.removeEventListener('click', this.topbarSubmenuOutsideClickListener);
+            this.topbarSubmenuOutsideClickListener = null;
         }
     }
 
-    bindTemplatesMenuOutsideClickListener() {
-        if (!this.templatesMenuOutsideClickListener) {
-            this.templatesMenuOutsideClickListener = (event) => {
-                if (!this.templatesMenuClick) {
-                    this.templatesMenuVisible = false;
-                    this.unbindTemplatesMenuOutsideClickListener();
-                }
-
-                this.templatesMenuClick = false;
-            };
-
-            document.addEventListener('click', this.templatesMenuOutsideClickListener);
-        }
+    toggleTopbarSubmenu(event: Event, index: number) {
+        this.activeTopbarSubmenu = this.activeTopbarSubmenu === index ? null : index;
+        event.preventDefault();
     }
 
-    unbindTemplatesMenuOutsideClickListener() {
-        if (this.templatesMenuOutsideClickListener) {
-            document.removeEventListener('click', this.templatesMenuOutsideClickListener);
-            this.templatesMenuOutsideClickListener = null;
-        }
+    isOutsideTopbarMenuClicked(event): boolean {
+        return !(this.topbarMenu.nativeElement.isSameNode(event.target) || this.topbarMenu.nativeElement.contains(event.target));
     }
 
-    
-    bindResourcesMenuOutsideClickListener() {
-        if (!this.resourcesMenuOutsideClickListener) {
-            this.resourcesMenuOutsideClickListener = (event) => {
-                if (!this.resourcesMenuClick) {
-                    this.resourcesMenuVisible = false;
-                    this.unbindResourcesMenuOutsideClickListener();
-                }
+    onTopbarSubmenuAnimationStart(event: AnimationEvent) {
+        switch(event.toState) {
+            case 'visible':
+                this.bindTopbarSubmenuOutsideClickListener();
+            break;
 
-                this.resourcesMenuClick = false;
-            };
-
-            document.addEventListener('click', this.resourcesMenuOutsideClickListener);
-        }
-    }
-    
-    unbindResourcesMenuOutsideClickListener() {
-        if (this.resourcesMenuOutsideClickListener) {
-            document.removeEventListener('click', this.resourcesMenuOutsideClickListener);
-            this.resourcesMenuOutsideClickListener = null;
-        }
-    }
-
-    bindVersionsMenuOutsideClickListener() {
-        if (!this.versionsMenuOutsideClickListener) {
-            this.versionsMenuOutsideClickListener = (event) => {
-                if (!this.versionsMenuClick) {
-                    this.versionsMenuVisible = false;
-                    this.unbindVersionsMenuOutsideClickListener();
-                }
-
-                this.versionsMenuClick = false;
-            };
-
-            document.addEventListener('click', this.versionsMenuOutsideClickListener);
-        }
-    }
-
-    unbindVersionsMenuOutsideClickListener() {
-        if (this.versionsMenuOutsideClickListener) {
-            document.removeEventListener('click', this.versionsMenuOutsideClickListener);
-            this.versionsMenuOutsideClickListener = null;
+            case 'void':
+                this.unbindTopbarSubmenuOutsideClickListener();
+            break;
         }
     }
 }

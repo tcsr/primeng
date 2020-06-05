@@ -19,12 +19,12 @@
 }
 
 .ui-dialog {
-    position: fixed;
     padding: 0;
     pointer-events: auto;
     display: flex;
     flex-direction: column;
     max-height: 90%;
+    position: relative;
 }
 
 .ui-dialog .ui-dialog-titlebar {
@@ -39,7 +39,6 @@
     border: 0;
     padding: .5em .75em;
     background: none;
-    zoom: 1;
     overflow-y: auto;
 }
 

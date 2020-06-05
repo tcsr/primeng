@@ -1,8 +1,6 @@
-<table-submenu></table-submenu>
-
 <div class="content-section introduction">
     <div>
-        <span class="feature-title">Table - <span class="subitem">Basic</span></span>
+        <span class="feature-title">Table <span class="subitem">Basic</span></span>
         <span>Table requires a header and a body template to display data.</span>
     </div>
 </div>
@@ -37,10 +35,13 @@
 </div>
 
 <div class="content-section documentation">
-    <p-tabView effect="fade">
-        <p-tabPanel header="tableeditdemo.ts">
-            <a href="https://github.com/primefaces/primeng/tree/master/src/app/showcase/components/table/tableeditdemo.ts" class="btn-viewsource" target="_blank">
+    <p-tabView>
+        <p-tabPanel header="tablebasicdemo.ts">
+            <a href="https://github.com/primefaces/primeng/tree/master/src/app/showcase/components/table/tablebasicdemo.ts" class="btn-viewsource" target="_blank">
                 <span>View on GitHub</span>
+            </a>
+            <a href="https://stackblitz.com/edit/primeng-tablebasic-demo" class="btn-viewsource" style="margin-left: .5em;" target="_blank">
+                <span>Edit in StackBlitz</span>
             </a>
 <pre>
 <code class="language-typescript" pCode ngNonBindable>
@@ -58,9 +59,12 @@ export class TableBasicDemo implements OnInit &#123;
 </pre>   
         </p-tabPanel>
 
-        <p-tabPanel header="tableeditdemo.html">
-            <a href="https://github.com/primefaces/primeng/tree/master/src/app/showcase/components/table/tableeditdemo.html" class="btn-viewsource" target="_blank">
+        <p-tabPanel header="tablebasicdemo.html">
+            <a href="https://github.com/primefaces/primeng/tree/master/src/app/showcase/components/table/tablebasicdemo.html" class="btn-viewsource" target="_blank">
                 <span>View on GitHub</span>
+            </a>
+            <a href="https://stackblitz.com/edit/primeng-tablebasic-demo" class="btn-viewsource" style="margin-left: .5em;" target="_blank">
+                <span>Edit in StackBlitz</span>
             </a>
 <pre>
 <code class="language-markup" pCode ngNonBindable>
@@ -85,6 +89,11 @@ export class TableBasicDemo implements OnInit &#123;
 &lt;/p-table&gt;
 </code>
 </pre>
+        </p-tabPanel>
+        <p-tabPanel header="StackBlitz">
+            <ng-template pTemplate="content">
+                <iframe src="https://stackblitz.com/edit/primeng-tablebasic-demo?embed=1" style="width: 100%; height: 768px; border: none;"></iframe>
+            </ng-template>
         </p-tabPanel>
     </p-tabView>
 </div>

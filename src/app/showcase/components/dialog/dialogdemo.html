@@ -101,7 +101,7 @@
 </div>
 
 <div class="content-section documentation">
-    <p-tabView effect="fade">
+    <p-tabView>
         <p-tabPanel header="Documentation">
             <h3>Import</h3>
 <pre>
@@ -137,7 +137,7 @@ export class ModelComponent &#123;
 </code>
 </pre>
 
-            <p>By default dialog is hidden and enabling the visible property displays the dialog. As visible supports
+            <p>By default dialog is hidden and enabling the <i>visible</i> property displays the dialog. As visible supports
             two-way binding, hiding the dialog with close button updates the visible state as false.</p>
 
             <h3>Dimensions</h3>
@@ -175,7 +175,7 @@ Content
 </pre>
 
             <h3>Header and Footer</h3>
-            <p>Header and Footer sections are useful to include custom content. Note that Header and Footer components should be imported and defined
+            <p>Header and Footer sections are useful to include custom content. Note that <i>Header</i> and <i>Footer</i> components should be imported and defined
             at directives section of your component for this to work.</p>
 <pre>
 <code class="language-markup" pCode ngNonBindable>
@@ -192,7 +192,7 @@ Content
 </pre>
 
             <h3>Positioning</h3>
-            <p>Dialog location is controlled with the <i>position</i> property whose default value is center. Other valid values are top", "bottom", "left", "right", "topleft", "topright", "bottomleft" and "bottomright".</p>
+            <p>Dialog location is controlled with the <i>position</i> property whose default value is center. Other valid values are top", "bottom", "left", "right", "topleft", "topright", "bottomleft" and "bottomright". You may also call the resetPosition() method of Dialog to re-position it after the content or position changes.</p>
 <pre>
 <code class="language-markup" pCode ngNonBindable>
 &lt;p-dialog position="top" [(visible)]="display"&gt;
@@ -528,6 +528,9 @@ Content
             <a href="https://github.com/primefaces/primeng/tree/master/src/app/showcase/components/dialog" class="btn-viewsource" target="_blank">
                 <span>View on GitHub</span>
             </a>
+            <a href="https://stackblitz.com/edit/primeng-dialog-demo" class="btn-viewsource" style="margin-left: .5em;" target="_blank">
+                <span>Edit in StackBlitz</span>
+            </a>
 <pre>
 <code class="language-markup" pCode ngNonBindable>
 &lt;h3&gt;Basic&lt;/h3&gt;
@@ -678,6 +681,11 @@ export class DialogDemo &#123;
 &#125;
 </code>
 </pre>
+        </p-tabPanel>
+        <p-tabPanel header="StackBlitz">
+            <ng-template pTemplate="content">
+                <iframe src="https://stackblitz.com/edit/primeng-dialog-demo?embed=1" style="width: 100%; height: 768px; border: none;"></iframe>
+            </ng-template>
         </p-tabPanel>
     </p-tabView>
 </div>

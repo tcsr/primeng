@@ -12,6 +12,8 @@ import { TableExportDemo } from './tableexportdemo';
 import { TableColGroupDemo } from './tablecolgroupdemo';
 import { TableRowExpansionDemo } from './tablerowexpansiondemo';
 import { TableScrollDemo } from './tablescrolldemo';
+import { TableVirtualScrollDemo } from './tablevirtualscrolldemo';
+import { TableFlexScrollDemo } from './tableflexscrolldemo';
 import { TableColToggleDemo } from './tablecoltoggledemo';
 import { TableCrudDemo } from './tablecruddemo';
 import { TableResponsiveDemo } from './tableresponsivedemo';
@@ -41,7 +43,9 @@ import { TableDynamicDemo } from './tabledynamicdemo';
 			{ path: 'export', component: TableExportDemo },
 			{ path: 'colgroup', component: TableColGroupDemo },
 			{ path: 'rowexpansion', component: TableRowExpansionDemo },
-			{ path: 'scroll', component: TableScrollDemo },
+            { path: 'scroll', component: TableScrollDemo },
+            { path: 'virtualscroll', component: TableVirtualScrollDemo },
+            { path: 'flexscroll', component: TableFlexScrollDemo },
 			{ path: 'coltoggle', component: TableColToggleDemo },
 			{ path: 'crud', component: TableCrudDemo },
 			{ path: 'responsive', component: TableResponsiveDemo },

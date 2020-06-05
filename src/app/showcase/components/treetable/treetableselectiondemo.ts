@@ -1,31 +1,11 @@
 import { Component } from '@angular/core';
 import { TreeNode } from 'primeng/api';
 import { NodeService } from '../../service/nodeservice';
-import {MessageService} from 'primeng/api';
-import { AppComponent } from '../../app.component';
+import { MessageService } from 'primeng/api';
 
 @Component({
     templateUrl: './treetableselectiondemo.html',
-    providers: [MessageService],
-    styles: [`
-        :host ::ng-deep .ui-toast {
-            top: 80px;
-        }
-
-        :host ::ng-deep .news-active .ui-toast {
-            top: 150px;
-        }
-
-        @media screen and (max-width: 64em) {
-            :host ::ng-deep .ui-toast {
-                top: 110px;
-            }
-
-            :host ::ng-deep .news-active .ui-toast {
-                top: 180px;
-            }
-        }
-    `]
+    providers: [MessageService]
 })
 export class TreeTableSelectionDemo {
 
@@ -51,7 +31,7 @@ export class TreeTableSelectionDemo {
 
     cols: any[];
 
-    constructor(private nodeService: NodeService, private messageService: MessageService, private app: AppComponent) { }
+    constructor(private nodeService: NodeService, private messageService: MessageService) { }
 
     ngOnInit() {
         this.nodeService.getFilesystem().then(files => this.files1 = files);
@@ -74,8 +54,5 @@ export class TreeTableSelectionDemo {
     nodeUnselect(event) {
         this.messageService.add({severity: 'info', summary: 'Node Unselected', detail: event.node.data.name});
     }
-
-    isNewsActive() {
-        return this.app.newsActive;
-    }
+    
 }

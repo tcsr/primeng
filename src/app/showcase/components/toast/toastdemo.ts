@@ -1,6 +1,5 @@
 import {Component} from '@angular/core';
 import {MessageService} from 'primeng/api';
-import { AppComponent } from '../../app.component';
 
 @Component({
     templateUrl: './toastdemo.html',
@@ -22,30 +21,12 @@ import { AppComponent } from '../../app.component';
         :host ::ng-deep .custom-toast .ui-toast-message.ui-toast-message-info .ui-toast-close-icon {
             color: #ffffff;
         }
-
-        :host ::ng-deep .top-toast {
-            top: 80px;
-        }
-
-        :host ::ng-deep .news-active .top-toast {
-            top: 150px;
-        }
-
-        @media screen and (max-width: 64em) {
-            :host ::ng-deep .top-toast {
-                top: 110px;
-            }
-
-            :host ::ng-deep .news-active .top-toast {
-                top: 180px;
-            }
-        }
     `],
     providers: [MessageService]
 })
 export class ToastDemo {
 
-    constructor(private messageService: MessageService, private app: AppComponent) {}
+    constructor(private messageService: MessageService) {}
 
     showSuccess() {
         this.messageService.add({severity:'success', summary: 'Success Message', detail:'Order submitted'});
@@ -98,9 +79,5 @@ export class ToastDemo {
     
     clear() {
         this.messageService.clear();
-    }
-
-    isNewsActive() {
-        return this.app.newsActive;
     }
 }

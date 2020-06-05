@@ -1,31 +1,11 @@
 import { Component } from '@angular/core';
 import { TreeNode, MenuItem } from 'primeng/api';
 import { NodeService } from '../../service/nodeservice';
-import {MessageService} from 'primeng/api';
-import { AppComponent } from '../../app.component';
+import { MessageService } from 'primeng/api';
 
 @Component({
     templateUrl: './treetablecontextmenudemo.html',
-    providers: [MessageService],
-    styles: [`
-        :host ::ng-deep .ui-toast {
-            top: 80px;
-        }
-
-        :host ::ng-deep .news-active .ui-toast {
-            top: 150px;
-        }
-
-        @media screen and (max-width: 64em) {
-            :host ::ng-deep .ui-toast {
-                top: 110px;
-            }
-
-            :host ::ng-deep .news-active .ui-toast {
-                top: 180px;
-            }
-        }
-    `]
+    providers: [MessageService]
 })
 export class TreeTableContextMenuDemo {
 
@@ -37,7 +17,7 @@ export class TreeTableContextMenuDemo {
 
     items: MenuItem[];
 
-    constructor(private nodeService: NodeService, private messageService: MessageService, private app: AppComponent) { }
+    constructor(private nodeService: NodeService, private messageService: MessageService) { }
 
     ngOnInit() {
         this.nodeService.getFilesystem().then(files => this.files = files);
@@ -63,8 +43,4 @@ export class TreeTableContextMenuDemo {
         this.files = [...this.files];
     }
 
-
-    isNewsActive() {
-        return this.app.newsActive;
-    }
 }

@@ -1,7 +1,7 @@
 import {NgModule,Component,ElementRef,Input,Renderer2,ChangeDetectionStrategy} from '@angular/core';
 import {CommonModule} from '@angular/common';
 import {DomHandler} from 'primeng/dom';
-import {MenuItem} from 'primeng/api';
+import {MegaMenuItem,MenuItem} from 'primeng/api';
 import {RouterModule} from '@angular/router';
 
 @Component({
@@ -30,7 +30,7 @@ import {RouterModule} from '@angular/router';
                         </a>
 
                         <div class="ui-megamenu-panel ui-widget-content ui-corner-all ui-shadow" *ngIf="category.items">
-                            <div class="ui-g">
+                            <div class="ui-megamenu-grid">
                                 <ng-template ngFor let-column [ngForOf]="category.items">
                                     <div [class]="getColumnClass(category)">
                                         <ng-template ngFor let-submenu [ngForOf]="column">
@@ -72,7 +72,7 @@ import {RouterModule} from '@angular/router';
 })
 export class MegaMenu {
 
-    @Input() model: MenuItem[];
+    @Input() model: MegaMenuItem[];
 
     @Input() style: any;
 
@@ -90,7 +90,7 @@ export class MegaMenu {
                 
     constructor(public el: ElementRef, public renderer: Renderer2) {}
     
-    onItemMouseEnter(event, item, menuitem: MenuItem) {
+    onItemMouseEnter(event, item, menuitem: MegaMenuItem) {
         if (menuitem.disabled) {
             return;
         }
@@ -127,7 +127,7 @@ export class MegaMenu {
         }, 1000);
     }
     
-    itemClick(event, item: MenuItem) {
+    itemClick(event, item: MenuItem | MegaMenuItem) {
         if (item.disabled) {
             event.preventDefault();
             return;
@@ -147,28 +147,28 @@ export class MegaMenu {
         this.activeItem = null;
     }
     
-    getColumnClass(menuitem: MenuItem) {
+    getColumnClass(menuitem: MegaMenuItem) {
         let length = menuitem.items ? menuitem.items.length: 0;
         let columnClass;
         switch(length) {
             case 2:
-                columnClass= 'ui-g-6';
+                columnClass= 'ui-megamenu-col-6';
             break;
             
             case 3:
-                columnClass= 'ui-g-4';
+                columnClass= 'ui-megamenu-col-4';
             break;
             
             case 4:
-                columnClass= 'ui-g-3';
+                columnClass= 'ui-megamenu-col-3';
             break;
             
             case 6:
-                columnClass= 'ui-g-2';
+                columnClass= 'ui-megamenu-col-2';
             break;
                         
             default:
-                columnClass= 'ui-g-12';
+                columnClass= 'ui-megamenu-col-12';
             break;
         }
         

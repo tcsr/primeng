@@ -20,7 +20,16 @@ const hideAnimation = animation([
 @Component({
     selector: 'p-dialog',
     template: `
-        <div [class]="maskStyleClass" [ngClass]="getMaskClass()" *ngIf="maskVisible">
+        <div *ngIf="maskVisible" [class]="maskStyleClass" 
+            [ngClass]="{'ui-dialog-mask': true, 'ui-widget-overlay': this.modal, 'ui-dialog-visible': this.maskVisible, 'ui-dialog-mask-scrollblocker': this.modal || this.blockScroll,
+                'ui-dialog-left': position === 'left',
+                'ui-dialog-right': position === 'right',
+                'ui-dialog-top': position === 'top',
+                'ui-dialog-topleft': position === 'topleft',
+                'ui-dialog-topright': position === 'topright',
+                'ui-dialog-bottom': position === 'bottom',
+                'ui-dialog-bottomleft': position === 'bottomleft',
+                'ui-dialog-bottomright': position === 'bottomright'}" >
             <div #container [ngClass]="{'ui-dialog ui-widget ui-widget-content ui-corner-all ui-shadow':true, 'ui-dialog-rtl':rtl,'ui-dialog-draggable':draggable,'ui-dialog-resizable':resizable, 'ui-dialog-maximized': maximized}"
                 [ngStyle]="style" [class]="styleClass" *ngIf="visible" pFocusTrap [pFocusTrapDisabled]="focusTrap === false"
                 [@animation]="{value: 'visible', params: {transform: transformOptions, transition: transitionOptions}}" (@animation.start)="onAnimationStart($event)" (@animation.done)="onAnimationEnd($event)" role="dialog" [attr.aria-labelledby]="id + '-label'">
@@ -68,9 +77,22 @@ export class Dialog implements OnDestroy {
 
     @Input() resizable: boolean = true;
 
-    @Input() positionLeft: number;
 
-    @Input() positionTop: number;
+    @Input() get positionLeft(): number {
+        return 0;
+    };
+
+    set positionLeft(_positionLeft: number) {
+        console.log("positionLeft property is deprecated.");
+    }
+
+    @Input() get positionTop(): number {
+        return 0;
+    };
+
+    set positionTop(_positionTop: number) {
+        console.log("positionTop property is deprecated.");
+    }
 
     @Input() contentStyle: any;
 
@@ -328,19 +350,6 @@ export class Dialog implements OnDestroy {
         }
     }
 
-    getMaskClass() {
-        let maskClass = {'ui-dialog-mask': true, 'ui-widget-overlay': this.modal, 'ui-dialog-visible': this.maskVisible, 'ui-dialog-mask-scrollblocker': this.modal || this.blockScroll};
-        maskClass[this.getPositionClass().toString()] = true;
-        return maskClass;
-    }
-
-    getPositionClass() {
-        const positions = ['left', 'right', 'top', 'topleft', 'topright', 'bottom', 'bottomleft', 'bottomright'];
-        const pos = positions.find(item => item === this.position);
-
-        return pos ? `ui-dialog-${pos}` : '';
-    }
-
     initDrag(event: MouseEvent) {
         if (DomHandler.hasClass(event.target, 'ui-dialog-titlebar-icon') || DomHandler.hasClass((<HTMLElement> event.target).parentElement, 'ui-dialog-titlebar-icon')) {
             return;
@@ -350,6 +359,8 @@ export class Dialog implements OnDestroy {
             this.dragging = true;
             this.lastPageX = event.pageX;
             this.lastPageY = event.pageY;
+
+            this.container.style.margin = '0';
             DomHandler.addClass(document.body, 'ui-unselectable-text');
         }
     }
@@ -397,6 +408,8 @@ export class Dialog implements OnDestroy {
             let topPos = offset.top + deltaY;
             let viewport = DomHandler.getViewport();
 
+            this.container.style.position = 'fixed';
+
             if (this.keepInViewport) {
                 if (leftPos >= this.minX && (leftPos + containerWidth) < viewport.width) {
                     this._style.left = leftPos + 'px';
@@ -423,7 +436,20 @@ export class Dialog implements OnDestroy {
         if (this.draggable) {
             this.dragging = false;
             DomHandler.removeClass(document.body, 'ui-unselectable-text');
+            this.cd.detectChanges();
         }
+    }
+
+    resetPosition() {
+        this.container.style.position = '';
+        this.container.style.left = '';
+        this.container.style.top = '';
+        this.container.style.margin = '';
+    }
+
+    //backward compatibility
+    center() {
+        this.resetPosition();
     }
 
     initResize(event: MouseEvent) {
@@ -457,6 +483,11 @@ export class Dialog implements OnDestroy {
 
             if ((!minHeight || newHeight > parseInt(minHeight)) && (offset.top + newHeight) < viewport.height) {
                 this.contentViewChild.nativeElement.style.height = contentHeight + deltaY + 'px';
+
+                if (this._style.height) {
+                    this._style.height = newHeight + 'px';
+                    this.container.style.height = this._style.height;
+                }
             }
 
             this.lastPageX = event.pageX;

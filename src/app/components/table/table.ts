@@ -1,5 +1,5 @@
-import { NgModule, Component, HostListener, OnInit, OnDestroy, AfterViewInit, AfterViewChecked, Directive, Optional, AfterContentInit, 
-    Input, Output, EventEmitter, ElementRef, ContentChildren, TemplateRef, QueryList, ViewChild, NgZone, ChangeDetectorRef, OnChanges, SimpleChanges, ChangeDetectionStrategy} from '@angular/core';
+import { NgModule, Component, HostListener, OnInit, OnDestroy, AfterViewInit, AfterViewChecked, Directive, Optional, AfterContentInit,
+    Input, Output, EventEmitter, ElementRef, ContentChildren, TemplateRef, QueryList, ViewChild, NgZone, ChangeDetectorRef, OnChanges, SimpleChanges, ChangeDetectionStrategy, Query} from '@angular/core';
 import { CommonModule } from '@angular/common';
 import { PrimeTemplate, SharedModule } from 'primeng/api';
 import { PaginatorModule } from 'primeng/paginator';
@@ -12,6 +12,7 @@ import { Injectable } from '@angular/core';
 import { BlockableUI } from 'primeng/api';
 import { Subject, Subscription } from 'rxjs';
 import { FilterUtils } from 'primeng/utils';
+import { ScrollingModule, CdkVirtualScrollViewport } from '@angular/cdk/scrolling';
 
 @Injectable()
 export class TableService {
@@ -61,7 +62,8 @@ export class TableService {
         <div #container [ngStyle]="style" [class]="styleClass"
             [ngClass]="{'ui-table ui-widget': true, 'ui-table-responsive': responsive, 'ui-table-resizable': resizableColumns,
                 'ui-table-resizable-fit': (resizableColumns && columnResizeMode === 'fit'),
-                'ui-table-hoverable-rows': (rowHover||selectionMode), 'ui-table-auto-layout': autoLayout}">
+                'ui-table-hoverable-rows': (rowHover||selectionMode), 'ui-table-auto-layout': autoLayout,
+                'ui-table-flex-scrollable': (scrollable && scrollHeight === 'flex')}">
             <div class="ui-table-loading ui-widget-overlay" *ngIf="loading && showLoader"></div>
             <div class="ui-table-loading-content" *ngIf="loading && showLoader">
                 <i [class]="'ui-table-loading-icon pi-spin ' + loadingIcon"></i>
@@ -88,8 +90,8 @@ export class TableService {
             </div>
 
             <div class="ui-table-scrollable-wrapper" *ngIf="scrollable">
-               <div class="ui-table-scrollable-view ui-table-frozen-view" *ngIf="frozenColumns||frozenBodyTemplate" [pScrollableView]="frozenColumns" [frozen]="true" [ngStyle]="{width: frozenWidth}" [scrollHeight]="scrollHeight"></div>
-               <div class="ui-table-scrollable-view" [pScrollableView]="columns" [frozen]="false" [scrollHeight]="scrollHeight" [ngStyle]="{left: frozenWidth, width: 'calc(100% - '+frozenWidth+')'}"></div>
+               <div class="ui-table-scrollable-view ui-table-frozen-view" *ngIf="frozenColumns||frozenBodyTemplate" #scrollableFrozenView [pScrollableView]="frozenColumns" [frozen]="true" [ngStyle]="{width: frozenWidth}" [scrollHeight]="scrollHeight"></div>
+               <div class="ui-table-scrollable-view" #scrollableView [pScrollableView]="columns" [frozen]="false" [scrollHeight]="scrollHeight" [ngStyle]="{left: frozenWidth, width: 'calc(100% - '+frozenWidth+')'}"></div>
             </div>
 
             <p-paginator [rows]="rows" [first]="first" [totalRecords]="totalRecords" [pageLinkSize]="pageLinks" styleClass="ui-paginator-bottom" [alwaysShow]="alwaysShowPaginator"
@@ -180,6 +182,8 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
 
     @Input() filterDelay: number = 300;
 
+    @Input() filterLocale: string;
+
     @Input() expandedRowKeys: { [s: string]: boolean; } = {};
 
     @Input() editingRowKeys: { [s: string]: boolean; } = {};
@@ -227,6 +231,10 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
     @Input() stateStorage: string = 'session';
 
     @Input() editMode: string = 'cell';
+
+    @Input() minBufferPx: number;
+
+    @Input() maxBufferPx: number;
 
     @Output() onRowSelect: EventEmitter<any> = new EventEmitter();
 
@@ -279,6 +287,10 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
     @ViewChild('reorderIndicatorDown') reorderIndicatorDownViewChild: ElementRef;
 
     @ViewChild('table') tableViewChild: ElementRef;
+
+    @ViewChild('scrollableView') scrollableViewChild;
+
+    @ViewChild('scrollableFrozenView') scrollableFrozenViewChild;
 
     @ContentChildren(PrimeTemplate) templates: QueryList<PrimeTemplate>;
 
@@ -362,10 +374,6 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
 
     _sortOrder: number = 1;
 
-    virtualScrollTimer: any;
-
-    virtualScrollCallback: Function;
-
     preventSelectionSetterPropagation: boolean;
 
     _selection: any;
@@ -396,7 +404,10 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
 
     ngOnInit() {
         if (this.lazy && this.lazyLoadOnInit) {
-            this.onLazyLoad.emit(this.createLazyLoadMetadata());
+            if (!this.virtualScroll) {
+                this.onLazyLoad.emit(this.createLazyLoadMetadata());
+            }
+            
             if (this.restoringFilter) {
                 this.restoringFilter = false;
             }
@@ -481,6 +492,18 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
         }
     }
 
+    clearCache() {
+        if (this.scrollable) {
+            if (this.scrollableViewChild) {
+                this.scrollableViewChild.clearCache();
+            }
+
+            if (this.scrollableFrozenViewChild) {
+                this.scrollableViewChild.clearCache();
+            }
+        }
+    }
+
     ngOnChanges(simpleChange: SimpleChanges) {
         if (simpleChange.value) {
             if (this.isStateful() && !this.stateRestored) {
@@ -490,6 +513,7 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
             this._value = simpleChange.value.currentValue;
 
             if (!this.lazy) {
+                this.clearCache();
                 this.totalRecords = (this._value ? this._value.length : 0);
 
                 if (this.sortMode == 'single' && this.sortField)
@@ -498,10 +522,6 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
                     this.sortMultiple();
                 else if (this.hasFilter())       //sort already filters
                     this._filter();
-            }
-
-            if (this.virtualScroll && this.virtualScrollCallback) {
-                this.virtualScrollCallback();
             }
 
             this.tableService.onValueChange(simpleChange.value.currentValue);
@@ -659,6 +679,10 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
         }
 
         this.anchorRowIndex = null;
+
+        if (this.scrollable) {
+            this.resetScrollTop();
+        }
     }
 
     sort(event) {
@@ -672,6 +696,10 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
             if (this.resetPageOnSort) {
                 this._first = 0;
                 this.firstChange.emit(this._first);
+
+                if (this.scrollable) {
+                    this.resetScrollTop();
+                }
             }
         }
         if (this.sortMode === 'multiple') {
@@ -685,6 +713,10 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
                     if (this.resetPageOnSort) {
                         this._first = 0;
                         this.firstChange.emit(this._first);
+                        
+                        if (this.scrollable) {
+                            this.resetScrollTop();
+                        }
                     }
                 }
                 else {
@@ -1270,7 +1302,7 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
                             let dataFieldValue = ObjectUtils.resolveFieldData(this.value[i], filterField);
                             let filterConstraint = FilterUtils[filterMatchMode];
 
-                            if (!filterConstraint(dataFieldValue, filterValue)) {
+                            if (!filterConstraint(dataFieldValue, filterValue, this.filterLocale)) {
                                 localMatch = false;
                             }
 
@@ -1283,7 +1315,7 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
                     if (this.filters['global'] && !globalMatch && globalFilterFieldsArray) {
                         for(let j = 0; j < globalFilterFieldsArray.length; j++) {
                             let globalFilterField = globalFilterFieldsArray[j].field||globalFilterFieldsArray[j];
-                            globalMatch = FilterUtils[this.filters['global'].matchMode](ObjectUtils.resolveFieldData(this.value[i], globalFilterField), this.filters['global'].value);
+                            globalMatch = FilterUtils[this.filters['global'].matchMode](ObjectUtils.resolveFieldData(this.value[i], globalFilterField), this.filters['global'].value, this.filterLocale);
 
                             if (globalMatch) {
                                 break;
@@ -1330,6 +1362,10 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
         }
 
         this.cd.markForCheck();
+
+        if (this.scrollable) {
+            this.resetScrollTop();
+        }
     }
 
     hasFilter() {
@@ -1347,7 +1383,7 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
     createLazyLoadMetadata(): any {
         return {
             first: this.first,
-            rows: this.virtualScroll ? this.rows * 2: this.rows,
+            rows: this.rows,
             sortField: this.sortField,
             sortOrder: this.sortOrder,
             filters: this.filters,
@@ -1448,6 +1484,33 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
                 window.open(encodeURI(csv));
             }
             document.body.removeChild(link);
+        }
+    }
+
+    public resetScrollTop() {
+        if (this.virtualScroll)
+            this.scrollToVirtualIndex(0);
+        else
+            this.scrollTo({top: 0});
+    }
+
+    public scrollToVirtualIndex(index: number) {
+        if (this.scrollableViewChild) {
+            this.scrollableViewChild.scrollToVirtualIndex(index);
+        }
+
+        if (this.scrollableFrozenViewChild) {
+            this.scrollableFrozenViewChild.scrollToVirtualIndex(index);
+        }
+    }
+
+    public scrollTo(options) {
+        if (this.scrollableViewChild) {
+            this.scrollableViewChild.scrollTo(options);
+        }
+
+        if (this.scrollableFrozenViewChild) {
+            this.scrollableFrozenViewChild.scrollTo(options);
         }
     }
 
@@ -1600,7 +1663,7 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
                     if (newColumnWidth > 15 && nextColumnWidth > parseInt(nextColumnMinWidth)) {
                         if (this.scrollable) {
                             let scrollableView = this.findParentScrollableView(column);
-                            let scrollableBodyTable = DomHandler.findSingle(scrollableView, 'table.ui-table-scrollable-body-table');
+                            let scrollableBodyTable = DomHandler.findSingle(scrollableView, '.ui-table-scrollable-body table');
                             let scrollableHeaderTable = DomHandler.findSingle(scrollableView, 'table.ui-table-scrollable-header-table');
                             let scrollableFooterTable = DomHandler.findSingle(scrollableView, 'table.ui-table-scrollable-footer-table');
                             let resizeColumnIndex = DomHandler.index(column);
@@ -1651,7 +1714,7 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
         let scrollableBody = DomHandler.findSingle(scrollableView, '.ui-table-scrollable-body');
         let scrollableHeader = DomHandler.findSingle(scrollableView, '.ui-table-scrollable-header');
         let scrollableFooter = DomHandler.findSingle(scrollableView, '.ui-table-scrollable-footer');
-        let scrollableBodyTable = DomHandler.findSingle(scrollableBody, 'table.ui-table-scrollable-body-table');
+        let scrollableBodyTable = DomHandler.findSingle(scrollableBody, '.ui-table-scrollable-body table');
         let scrollableHeaderTable = DomHandler.findSingle(scrollableHeader, 'table.ui-table-scrollable-header-table');
         let scrollableFooterTable = DomHandler.findSingle(scrollableFooter, 'table.ui-table-scrollable-footer-table');
 
@@ -1878,22 +1941,6 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
         this.onRowDragEnd(event);
     }
 
-    handleVirtualScroll(event) {
-        this.first = (event.page - 1) * this.rows;
-        this.firstChange.emit(this.first);
-        this.virtualScrollCallback = event.callback;
-
-        this.zone.run(() => {
-            if (this.virtualScrollTimer) {
-                clearTimeout(this.virtualScrollTimer);
-            }
-
-            this.virtualScrollTimer = setTimeout(() => {
-                this.onLazyLoad.emit(this.createLazyLoadMetadata());
-            }, this.virtualScrollDelay);
-        });
-    }
-
     isEmpty() {
         let data = this.filteredValue||this.value;
         return data == null || data.length == 0;
@@ -2050,7 +2097,7 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
 
             if (this.scrollable) {
                 let headerCols = DomHandler.find(this.containerViewChild.nativeElement, '.ui-table-scrollable-header-table > colgroup > col');
-                let bodyCols = DomHandler.find(this.containerViewChild.nativeElement, '.ui-table-scrollable-body-table > colgroup > col');
+                let bodyCols = DomHandler.find(this.containerViewChild.nativeElement, '.ui-table-scrollable-body table > colgroup > col');
 
                 headerCols.map((col, index) => col.style.width = widths[index] + 'px');
                 bodyCols.map((col, index) => col.style.width = widths[index] + 'px');
@@ -2112,9 +2159,14 @@ export class Table implements OnInit, AfterViewInit, AfterContentInit, Blockable
 @Component({
     selector: '[pTableBody]',
     template: `
-        <ng-container *ngIf="!dt.expandedRowTemplate">
+        <ng-container *ngIf="!dt.expandedRowTemplate && !dt.virtualScroll">
             <ng-template ngFor let-rowData let-rowIndex="index" [ngForOf]="(dt.paginator && !dt.lazy) ? ((dt.filteredValue||dt.value) | slice:dt.first:(dt.first + dt.rows)) : (dt.filteredValue||dt.value)" [ngForTrackBy]="dt.rowTrackBy">
                 <ng-container *ngTemplateOutlet="template; context: {$implicit: rowData, rowIndex: dt.paginator ? (dt.first + rowIndex) : rowIndex, columns: columns, editing: (dt.editMode === 'row' && dt.isRowEditing(rowData))}"></ng-container>
+            </ng-template>
+        </ng-container>
+        <ng-container *ngIf="!dt.expandedRowTemplate && dt.virtualScroll">
+            <ng-template cdkVirtualFor let-rowData let-rowIndex="index" [cdkVirtualForOf]="dt.value" [cdkVirtualForTrackBy]="dt.rowTrackBy">
+                <ng-container *ngTemplateOutlet="rowData ? template: dt.loadingBodyTemplate; context: {$implicit: rowData, rowIndex: dt.paginator ? (dt.first + rowIndex) : rowIndex, columns: columns, editing: (dt.editMode === 'row' && dt.isRowEditing(rowData))}"></ng-container>
             </ng-template>
         </ng-container>
         <ng-container *ngIf="dt.expandedRowTemplate">
@@ -2162,21 +2214,25 @@ export class TableBody {
                 </table>
             </div>
         </div>
-        <div #scrollBody class="ui-table-scrollable-body">
-            <table #scrollTable [ngClass]="{'ui-table-scrollable-body-table': true, 'ui-table-virtual-table': dt.virtualScroll}" [class]="dt.tableStyleClass" [ngStyle]="dt.tableStyle">
-                <ng-container *ngTemplateOutlet="frozen ? dt.frozenColGroupTemplate||dt.colGroupTemplate : dt.colGroupTemplate; context {$implicit: columns}"></ng-container>
-                <tbody class="ui-table-tbody" [pTableBody]="columns" [pTableBodyTemplate]="frozen ? dt.frozenBodyTemplate||dt.bodyTemplate : dt.bodyTemplate" [frozen]="frozen"></tbody>
-            </table>
-            <table #loadingTable *ngIf="dt.virtualScroll && dt.loadingBodyTemplate != null" [ngClass]="{'ui-table-scrollable-body-table ui-table-loading-virtual-table': true, 'ui-table-virtual-table': dt.virtualScroll}">
-                <tbody class="ui-table-tbody">
-                    <ng-template ngFor [ngForOf]="loadingArray">
-                        <ng-container *ngTemplateOutlet="dt.loadingBodyTemplate; context: {columns: columns}"></ng-container>
-                    </ng-template>
-                </tbody>
-            </table>
-            <div #scrollableAligner style="background-color:transparent" *ngIf="frozen"></div>
-            <div #virtualScroller class="ui-table-virtual-scroller" *ngIf="dt.virtualScroll"></div>
-        </div>
+        <ng-container *ngIf="!dt.virtualScroll; else virtualScrollTemplate">
+            <div #scrollBody class="ui-table-scrollable-body" [ngStyle]="{'max-height': !dt.scrollHeight !== 'flex' ? scrollHeight : undefined}">
+                <table #scrollTable [class]="dt.tableStyleClass" [ngStyle]="dt.tableStyle">
+                    <ng-container *ngTemplateOutlet="frozen ? dt.frozenColGroupTemplate||dt.colGroupTemplate : dt.colGroupTemplate; context {$implicit: columns}"></ng-container>
+                    <tbody class="ui-table-tbody" [pTableBody]="columns" [pTableBodyTemplate]="frozen ? dt.frozenBodyTemplate||dt.bodyTemplate : dt.bodyTemplate" [frozen]="frozen"></tbody>
+                </table>
+                <div #scrollableAligner style="background-color:transparent" *ngIf="frozen"></div>
+            </div>
+        </ng-container>
+        <ng-template #virtualScrollTemplate>
+            <cdk-virtual-scroll-viewport [itemSize]="dt.virtualRowHeight" [style.height]="!dt.scrollHeight !== 'flex' ? scrollHeight : undefined" 
+                    [minBufferPx]="dt.minBufferPx" [maxBufferPx]="dt.maxBufferPx" (scrolledIndexChange)="onScrollIndexChange($event)" class="ui-table-virtual-scrollable-body">
+                <table #scrollTable [class]="dt.tableStyleClass" [ngStyle]="dt.tableStyle">
+                    <ng-container *ngTemplateOutlet="frozen ? dt.frozenColGroupTemplate||dt.colGroupTemplate : dt.colGroupTemplate; context {$implicit: columns}"></ng-container>
+                    <tbody class="ui-table-tbody" [pTableBody]="columns" [pTableBodyTemplate]="frozen ? dt.frozenBodyTemplate||dt.bodyTemplate : dt.bodyTemplate" [frozen]="frozen"></tbody>
+                </table>
+                <div #scrollableAligner style="background-color:transparent" *ngIf="frozen"></div>
+            </cdk-virtual-scroll-viewport>
+        </ng-template>
         <div #scrollFooter class="ui-table-scrollable-footer ui-widget-header">
             <div #scrollFooterBox class="ui-table-scrollable-footer-box">
                 <table class="ui-table-scrollable-footer-table" [ngClass]="dt.tableStyleClass" [ngStyle]="dt.tableStyle">
@@ -2203,82 +2259,57 @@ export class ScrollableView implements AfterViewInit,OnDestroy,AfterViewChecked 
 
     @ViewChild('scrollTable') scrollTableViewChild: ElementRef;
 
-    @ViewChild('loadingTable') scrollLoadingTableViewChild: ElementRef;
-
     @ViewChild('scrollFooter') scrollFooterViewChild: ElementRef;
 
     @ViewChild('scrollFooterBox') scrollFooterBoxViewChild: ElementRef;
 
-    @ViewChild('virtualScroller') virtualScrollerViewChild: ElementRef;
-
     @ViewChild('scrollableAligner') scrollableAlignerViewChild: ElementRef;
 
-    headerScrollListener: Function;
+    @ViewChild(CdkVirtualScrollViewport) virtualScrollBody: CdkVirtualScrollViewport;
 
-    bodyScrollListener: Function;
+    headerScrollListener: any;
 
-    footerScrollListener: Function;
+    bodyScrollListener: any;
+
+    footerScrollListener: any;
 
     frozenSiblingBody: HTMLDivElement;
 
-    scrollableSiblingBody: Element;
-
-    _scrollHeight: string;
-
     subscription: Subscription;
-
-    totalRecordsSubscription: Subscription;
-
-    columnsSubscription: Subscription;
 
     initialized: boolean;
 
     preventBodyScrollPropagation: boolean;
 
-    loadingArray: number[] = [];
+    loadedPages: number[] = [];
 
-    lastBodyScrollTop: number = 0;
-
-    constructor(public dt: Table, public el: ElementRef, public zone: NgZone) {
-        this.subscription = this.dt.tableService.valueSource$.subscribe(() => {
-            this.zone.runOutsideAngular(() => {
-                setTimeout(() => {
-                    this.alignScrollBar();
-
-                    if (this.scrollLoadingTableViewChild && this.scrollLoadingTableViewChild.nativeElement) {
-                        this.scrollLoadingTableViewChild.nativeElement.style.display = 'none';
-                    }
-                }, 50);
-            });
-        });
-
-        if (this.dt.virtualScroll) {
-            this.totalRecordsSubscription = this.dt.tableService.totalRecordsSource$.subscribe(() => {
-                this.zone.runOutsideAngular(() => {
-                    setTimeout(() => {
-                        this.setVirtualScrollerHeight();
-                    }, 50);
-                });
-            });
-        }
-
-        this.loadingArray = Array(this.dt.rows).fill(1);
-
-        this.initialized = false;
-     }
+    _scrollHeight: string;
 
     @Input() get scrollHeight(): string {
         return this._scrollHeight;
     }
     set scrollHeight(val: string) {
         this._scrollHeight = val;
-        this.setScrollHeight();
+        if (val != null && (val.includes('%') || val.includes('calc'))) {
+            console.log('Percentage scroll height calculation is removed in favor of the more performant CSS based flex mode, use scrollHeight="flex" instead.')
+        }
     }
+
+    constructor(public dt: Table, public el: ElementRef, public zone: NgZone) {
+        this.subscription = this.dt.tableService.valueSource$.subscribe(() => {
+            this.zone.runOutsideAngular(() => {
+                setTimeout(() => {
+                    this.alignScrollBar();
+                }, 50);
+            });
+        });
+
+        this.initialized = false;
+     }
 
     ngAfterViewChecked() {
         if (!this.initialized && this.el.nativeElement.offsetParent) {
             this.alignScrollBar();
-            this.setScrollHeight();
             this.initialized = true;
         }
     }
@@ -2291,40 +2322,20 @@ export class ScrollableView implements AfterViewInit,OnDestroy,AfterViewChecked 
 
             let frozenView = this.el.nativeElement.previousElementSibling;
             if (frozenView) {
-                this.frozenSiblingBody = DomHandler.findSingle(frozenView, '.ui-table-scrollable-body');
+                if (this.dt.virtualScroll)
+                    this.frozenSiblingBody = DomHandler.findSingle(frozenView, '.ui-table-virtual-scrollable-body');
+                else
+                    this.frozenSiblingBody = DomHandler.findSingle(frozenView, '.ui-table-scrollable-body');
             }
         }
         else {
             if (this.scrollableAlignerViewChild && this.scrollableAlignerViewChild.nativeElement) {
                 this.scrollableAlignerViewChild.nativeElement.style.height = DomHandler.calculateScrollbarHeight() + 'px';
             }
-            let scrollableView = this.el.nativeElement.nextElementSibling;
-            if (scrollableView) {
-                this.scrollableSiblingBody = DomHandler.findSingle(scrollableView, '.ui-table-scrollable-body');
-            }
         }
 
         this.bindEvents();
-        this.setScrollHeight();
         this.alignScrollBar();
-
-        if (this.frozen) {
-            this.columnsSubscription = this.dt.tableService.columnsSource$.subscribe(() => {
-                this.zone.runOutsideAngular(() => {
-                    setTimeout(() => {
-                        this.setScrollHeight();
-                    }, 50);
-                });
-            });
-        }
-
-        if (this.dt.virtualScroll) {
-            this.setVirtualScrollerHeight();
-
-            if (this.scrollLoadingTableViewChild && this.scrollLoadingTableViewChild.nativeElement) {
-                this.scrollLoadingTableViewChild.nativeElement.style.display = 'table';
-            }
-        }
     }
 
     bindEvents() {
@@ -2341,7 +2352,11 @@ export class ScrollableView implements AfterViewInit,OnDestroy,AfterViewChecked 
 
             if (!this.frozen) {
                 this.bodyScrollListener = this.onBodyScroll.bind(this);
-                this.scrollBodyViewChild.nativeElement.addEventListener('scroll', this.bodyScrollListener);
+
+                if (this.dt.virtualScroll)
+                    this.virtualScrollBody.getElementRef().nativeElement.addEventListener('scroll', this.bodyScrollListener);
+                else
+                    this.scrollBodyViewChild.nativeElement.addEventListener('scroll', this.bodyScrollListener);
             }
         });
     }
@@ -2355,10 +2370,16 @@ export class ScrollableView implements AfterViewInit,OnDestroy,AfterViewChecked 
             this.scrollFooterViewChild.nativeElement.removeEventListener('scroll', this.footerScrollListener);
         }
 
-        this.scrollBodyViewChild.nativeElement.removeEventListener('scroll', this.bodyScrollListener);
+        if (this.scrollBodyViewChild && this.scrollBodyViewChild.nativeElement) {
+            this.scrollBodyViewChild.nativeElement.removeEventListener('scroll', this.bodyScrollListener);
+        }
+
+        if (this.virtualScrollBody && this.virtualScrollBody.getElementRef()) {
+            this.virtualScrollBody.getElementRef().nativeElement.removeEventListener('scroll', this.bodyScrollListener);
+        }
     }
 
-    onHeaderScroll(event) {
+    onHeaderScroll() {
         const scrollLeft = this.scrollHeaderViewChild.nativeElement.scrollLeft;
 
         this.scrollBodyViewChild.nativeElement.scrollLeft = scrollLeft;
@@ -2370,9 +2391,8 @@ export class ScrollableView implements AfterViewInit,OnDestroy,AfterViewChecked 
         this.preventBodyScrollPropagation = true;
     }
 
-    onFooterScroll(event) {
+    onFooterScroll() {
         const scrollLeft = this.scrollFooterViewChild.nativeElement.scrollLeft;
-
         this.scrollBodyViewChild.nativeElement.scrollLeft = scrollLeft;
 
         if (this.scrollHeaderViewChild && this.scrollHeaderViewChild.nativeElement) {
@@ -2389,113 +2409,99 @@ export class ScrollableView implements AfterViewInit,OnDestroy,AfterViewChecked 
         }
 
         if (this.scrollHeaderViewChild && this.scrollHeaderViewChild.nativeElement) {
-            this.scrollHeaderBoxViewChild.nativeElement.style.marginLeft = -1 * this.scrollBodyViewChild.nativeElement.scrollLeft + 'px';
+            this.scrollHeaderBoxViewChild.nativeElement.style.marginLeft = -1 * event.target.scrollLeft + 'px';
         }
 
         if (this.scrollFooterViewChild && this.scrollFooterViewChild.nativeElement) {
-            this.scrollFooterBoxViewChild.nativeElement.style.marginLeft = -1 * this.scrollBodyViewChild.nativeElement.scrollLeft + 'px';
+            this.scrollFooterBoxViewChild.nativeElement.style.marginLeft = -1 * event.target.scrollLeft + 'px';
         }
 
         if (this.frozenSiblingBody) {
-            this.frozenSiblingBody.scrollTop = this.scrollBodyViewChild.nativeElement.scrollTop;
-        }
-
-        if (this.dt.virtualScroll) {
-            requestAnimationFrame(() => {
-                if (this.lastBodyScrollTop !== this.scrollBodyViewChild.nativeElement.scrollTop) {
-                    this.lastBodyScrollTop = this.scrollBodyViewChild.nativeElement.scrollTop;
-                    let viewport = DomHandler.getOuterHeight(this.scrollBodyViewChild.nativeElement);
-                    let tableHeight = DomHandler.getOuterHeight(this.scrollTableViewChild.nativeElement);
-                    let pageHeight = this.dt.virtualRowHeight * this.dt.rows;
-                    let virtualTableHeight = DomHandler.getOuterHeight(this.virtualScrollerViewChild.nativeElement);
-                    let pageCount = (virtualTableHeight / pageHeight)||1;
-                    let scrollBodyTop = this.scrollTableViewChild.nativeElement.style.top||'0';
-
-                    if ((this.scrollBodyViewChild.nativeElement.scrollTop + viewport > parseFloat(scrollBodyTop) + tableHeight) || (this.scrollBodyViewChild.nativeElement.scrollTop < parseFloat(scrollBodyTop))) {
-                        if (this.scrollLoadingTableViewChild && this.scrollLoadingTableViewChild.nativeElement) {
-                            this.scrollLoadingTableViewChild.nativeElement.style.display = 'table';
-                            this.scrollLoadingTableViewChild.nativeElement.style.top = this.scrollBodyViewChild.nativeElement.scrollTop + 'px';
-                        }
-
-                        let page = Math.floor((this.scrollBodyViewChild.nativeElement.scrollTop * pageCount) / (this.scrollBodyViewChild.nativeElement.scrollHeight)) + 1;
-                        this.dt.handleVirtualScroll({
-                            page: page,
-                            callback: () => {
-                                if (this.scrollLoadingTableViewChild && this.scrollLoadingTableViewChild.nativeElement) {
-                                    this.scrollLoadingTableViewChild.nativeElement.style.display = 'none';
-                                }
-
-                                this.scrollTableViewChild.nativeElement.style.top = ((page - 1) * pageHeight) + 'px';
-
-                                if (this.frozenSiblingBody) {
-                                    (<HTMLElement> this.frozenSiblingBody.children[0]).style.top = this.scrollTableViewChild.nativeElement.style.top;
-                                }
-
-                                this.dt.anchorRowIndex = null;
-                            }
-                        });
-                    }
-                }
-            });
+            this.frozenSiblingBody.scrollTop = event.target.scrollTop;
         }
     }
 
-    setScrollHeight() {
-        if (this.scrollHeight && this.scrollBodyViewChild && this.scrollBodyViewChild.nativeElement) {
-            if (this.frozenSiblingBody) {
-                this.scrollBodyViewChild.nativeElement.style.maxHeight = this.frozenSiblingBody.style.maxHeight;
+    onScrollIndexChange(index: number) {
+        if (this.dt.lazy) {
+            let pageRange = this.createPageRange(Math.floor(index / this.dt.rows));
+            pageRange.forEach(page => this.loadPage(page));
+        }
+    }
+
+    createPageRange(page: number) {
+        let range: number[] = [];
+
+        if (page !== 0) {
+            range.push(page - 1);
+        }
+        range.push(page);
+        if (page !== (this.getPageCount() - 1)) {
+            range.push(page + 1);
+        }
+
+        return range;
+    }
+
+    loadPage(page: number) {
+        if (!this.loadedPages.includes(page)) {
+            this.dt.onLazyLoad.emit({
+                first: this.dt.rows * page, 
+                rows: this.dt.rows,
+                sortField: this.dt.sortField,
+                sortOrder: this.dt.sortOrder,
+                filters: this.dt.filters,
+                globalFilter: this.dt.filters && this.dt.filters['global'] ? this.dt.filters['global'].value : null,
+                multiSortMeta: this.dt.multiSortMeta
+            });
+            this.loadedPages.push(page);
+        }
+    }
+
+    clearCache() {
+        this.loadedPages = [];
+    }
+
+    getPageCount() {
+        let dataToRender = this.dt.filteredValue || this.dt.value;
+        let dataLength = dataToRender ? dataToRender.length: 0;
+        return Math.ceil(dataLength / this.dt.rows);
+    }
+
+    scrollToVirtualIndex(index: number): void {
+        if (this.virtualScrollBody) {
+            this.virtualScrollBody.scrollToIndex(index);
+        }
+    }
+
+    scrollTo(options): void {
+        if (this.virtualScrollBody) {
+            this.virtualScrollBody.scrollTo(options);
+        }
+        else {
+            if (this.scrollBodyViewChild.nativeElement.scrollTo) {
+                this.scrollBodyViewChild.nativeElement.scrollTo(options);
             }
             else {
-                if (this.scrollHeight.indexOf('%') !== -1) {
-                    let relativeHeight;
-                    this.scrollBodyViewChild.nativeElement.style.visibility = 'hidden';
-                    this.scrollBodyViewChild.nativeElement.style.height = '100px';     //temporary height to calculate static height
-                    let containerHeight = DomHandler.getOuterHeight(this.dt.el.nativeElement.children[0]);
-
-                    if (this.scrollHeight.includes("calc")) {
-                        let percentHeight = parseInt(this.scrollHeight.slice(this.scrollHeight.indexOf("(") + 1, this.scrollHeight.indexOf("%")));
-                        let diffValue = parseInt(this.scrollHeight.slice(this.scrollHeight.indexOf("-") + 1, this.scrollHeight.indexOf(")")));
-                        relativeHeight = (DomHandler.getOuterHeight(this.dt.el.nativeElement.parentElement) * percentHeight / 100) - diffValue;
-                    }
-                    else {
-                        relativeHeight = DomHandler.getOuterHeight(this.dt.el.nativeElement.parentElement) * parseInt(this.scrollHeight) / 100;
-                    }
-
-                    let staticHeight = containerHeight - 100;   //total height of headers, footers, paginators
-                    let scrollBodyHeight = (relativeHeight - staticHeight);
-
-                    if (this.frozen) {
-                        scrollBodyHeight -= DomHandler.calculateScrollbarWidth();
-                    }
-
-                    this.scrollBodyViewChild.nativeElement.style.height = 'auto';
-                    this.scrollBodyViewChild.nativeElement.style.maxHeight = scrollBodyHeight + 'px';
-                    this.scrollBodyViewChild.nativeElement.style.visibility = 'visible';
-                }
-                else {
-                    this.scrollBodyViewChild.nativeElement.style.maxHeight = this.scrollHeight;
-                }
+                this.scrollBodyViewChild.nativeElement.scrollLeft = options.left;
+                this.scrollBodyViewChild.nativeElement.scrollTop = options.top;
             }
-        }
-    }
-
-    setVirtualScrollerHeight() {
-        if (this.virtualScrollerViewChild.nativeElement) {
-            this.virtualScrollerViewChild.nativeElement.style.height = this.dt.totalRecords * this.dt.virtualRowHeight + 'px';
         }
     }
 
     hasVerticalOverflow() {
-        return DomHandler.getOuterHeight(this.scrollTableViewChild.nativeElement) > DomHandler.getOuterHeight(this.scrollBodyViewChild.nativeElement);
+        if (this.dt.virtualScroll)
+            return (this.virtualScrollBody.getDataLength() * this.dt.virtualRowHeight) > this.virtualScrollBody.getViewportSize();
+        else
+            return DomHandler.getOuterHeight(this.scrollTableViewChild.nativeElement) > DomHandler.getOuterHeight(this.scrollBodyViewChild.nativeElement);
     }
 
     alignScrollBar() {
         if (!this.frozen) {
             let scrollBarWidth = this.hasVerticalOverflow() ? DomHandler.calculateScrollbarWidth() : 0;
-            this.scrollHeaderBoxViewChild.nativeElement.style.marginRight = scrollBarWidth + 'px';
+            this.scrollHeaderBoxViewChild.nativeElement.style.paddingRight = scrollBarWidth + 'px';
 
             if (this.scrollFooterBoxViewChild && this.scrollFooterBoxViewChild.nativeElement) {
-                this.scrollFooterBoxViewChild.nativeElement.style.marginRight = scrollBarWidth + 'px';
+                this.scrollFooterBoxViewChild.nativeElement.style.paddingRight = scrollBarWidth + 'px';
             }
         }
         this.initialized = false;
@@ -2508,14 +2514,6 @@ export class ScrollableView implements AfterViewInit,OnDestroy,AfterViewChecked 
 
         if (this.subscription) {
             this.subscription.unsubscribe();
-        }
-
-        if (this.totalRecordsSubscription) {
-            this.totalRecordsSubscription.unsubscribe();
-        }
-
-        if (this.columnsSubscription) {
-            this.columnsSubscription.unsubscribe();
         }
 
         this.initialized = false;
@@ -2597,7 +2595,7 @@ export class SortableColumn implements OnInit, OnDestroy {
 @Component({
     selector: 'p-sortIcon',
     template: `
-        <i class="ui-sortable-column-icon pi pi-fw" [ngClass]="{'pi-sort-up': sortOrder === 1, 'pi-sort-down': sortOrder === -1, 'pi-sort': sortOrder === 0}"></i>
+        <i class="ui-sortable-column-icon pi pi-fw" [ngClass]="{'pi-sort-amount-up-alt': sortOrder === 1, 'pi-sort-amount-down': sortOrder === -1, 'pi-sort-alt': sortOrder === 0}"></i>
     `
 })
 export class SortIcon implements OnInit, OnDestroy {
@@ -3786,8 +3784,8 @@ export class ReorderableRow implements AfterViewInit {
 }
 
 @NgModule({
-    imports: [CommonModule,PaginatorModule],
-    exports: [Table,SharedModule,SortableColumn,SelectableRow,RowToggler,ContextMenuRow,ResizableColumn,ReorderableColumn,EditableColumn,CellEditor,SortIcon,TableRadioButton,TableCheckbox,TableHeaderCheckbox,ReorderableRowHandle,ReorderableRow,SelectableRowDblClick,EditableRow,InitEditableRow,SaveEditableRow,CancelEditableRow],
+    imports: [CommonModule,PaginatorModule,ScrollingModule],
+    exports: [Table,SharedModule,SortableColumn,SelectableRow,RowToggler,ContextMenuRow,ResizableColumn,ReorderableColumn,EditableColumn,CellEditor,SortIcon,TableRadioButton,TableCheckbox,TableHeaderCheckbox,ReorderableRowHandle,ReorderableRow,SelectableRowDblClick,EditableRow,InitEditableRow,SaveEditableRow,CancelEditableRow,ScrollingModule],
     declarations: [Table,SortableColumn,SelectableRow,RowToggler,ContextMenuRow,ResizableColumn,ReorderableColumn,EditableColumn,CellEditor,TableBody,ScrollableView,SortIcon,TableRadioButton,TableCheckbox,TableHeaderCheckbox,ReorderableRowHandle,ReorderableRow,SelectableRowDblClick,EditableRow,InitEditableRow,SaveEditableRow,CancelEditableRow]
 })
 export class TableModule { }

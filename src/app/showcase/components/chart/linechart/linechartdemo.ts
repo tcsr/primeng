@@ -1,35 +1,15 @@
 import {Component} from '@angular/core';
 import {MessageService} from 'primeng/api';
-import { AppComponent } from '../../../app.component';
 
 @Component({
     templateUrl: './linechartdemo.html',
-    providers: [MessageService],
-    styles: [`
-        :host ::ng-deep .ui-toast {
-            top: 80px;
-        }
-
-        :host ::ng-deep .news-active .ui-toast {
-            top: 150px;
-        }
-
-        @media screen and (max-width: 64em) {
-            :host ::ng-deep .ui-toast {
-                top: 110px;
-            }
-
-            :host ::ng-deep .news-active .ui-toast {
-                top: 180px;
-            }
-        }
-    `]
+    providers: [MessageService]
 })
 export class LineChartDemo {
 
     data: any;
 
-    constructor(private messageService: MessageService, private app: AppComponent) {
+    constructor(private messageService: MessageService) {
         this.data = {
             labels: ['January', 'February', 'March', 'April', 'May', 'June', 'July'],
             datasets: [
@@ -51,9 +31,5 @@ export class LineChartDemo {
 
     selectData(event) {
         this.messageService.add({severity: 'info', summary: 'Data Selected', 'detail': this.data.datasets[event.element._datasetIndex].data[event.element._index]});
-    }
-
-    isNewsActive() {
-        return this.app.newsActive;
     }
 }

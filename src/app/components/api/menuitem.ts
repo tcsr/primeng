@@ -5,7 +5,7 @@ export interface MenuItem {
     icon?: string;
     command?: (event?: any) => void;
     url?: string;
-    items?: MenuItem[]|MenuItem[][];
+    items?: MenuItem[];
     expanded?: boolean;
     disabled?: boolean;
     visible?: boolean;

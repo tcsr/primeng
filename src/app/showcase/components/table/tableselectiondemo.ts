@@ -2,30 +2,10 @@ import { Component, OnInit } from '@angular/core';
 import { Car } from '../../components/domain/car';
 import { CarService } from '../../service/carservice';
 import {MessageService} from 'primeng/api';
-import { AppComponent } from '../../app.component';
 
 @Component({
     templateUrl: './tableselectiondemo.html',
-    providers: [MessageService],
-    styles: [`
-        :host ::ng-deep .ui-toast {
-            top: 80px;
-        }
-
-        :host ::ng-deep .news-active .ui-toast {
-            top: 150px;
-        }
-
-        @media screen and (max-width: 64em) {
-            :host ::ng-deep .ui-toast {
-                top: 110px;
-            }
-
-            :host ::ng-deep .news-active .ui-toast {
-                top: 180px;
-            }
-        }
-    `]
+    providers: [MessageService]
 })
 export class TableSelectionDemo implements OnInit {
 
@@ -47,7 +27,7 @@ export class TableSelectionDemo implements OnInit {
 
     selectedCars3: Car[];
 
-    constructor(private carService: CarService, private messageService: MessageService, private app: AppComponent) { }
+    constructor(private carService: CarService, private messageService: MessageService) { }
 
     ngOnInit() {
         this.carService.getCarsSmall().then(cars => this.cars = cars);
@@ -73,8 +53,4 @@ export class TableSelectionDemo implements OnInit {
         this.messageService.add({severity:'info', summary:'Car Unselected', detail:'Vin: ' + event.data.vin});
     }
 
-
-    isNewsActive() {
-        return this.app.newsActive;
-    }
 }
